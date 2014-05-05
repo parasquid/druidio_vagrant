@@ -58,12 +58,46 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 script = <<EOF
 
 apt-get -y update
-apt-get -y install python-software-properties htop iftop iotop mytop sysstat screen byobu curl subversion git-core rsync openjdk-7-jre
+apt-get install python-software-properties -y
+apt-add-repository ppa:brightbox/ruby-ng -y
+add-apt-repository ppa:nginx/stable -y
 
+apt-get -y update
+apt-get -y install python-software-properties htop iftop iotop mytop sysstat screen byobu curl subversion git-core rsync openjdk-7-jre libpq-dev wget libyaml-ruby libzlib-ruby ruby2.0 ruby2.0-dev build-essential libxslt-dev libxml2-dev curl nano
+
+# Setup mysql
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password toor'
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password toor'
+apt-get -y update
+apt-get -y install mysql-server
+mysql -uroot -ptoor -e "GRANT ALL ON druid.* TO 'druid'@'localhost' IDENTIFIED BY 'diurd'; CREATE database druid;"
+
+# Setup druid
 wget -c http://static.druid.io/artifacts/releases/druid-services-0.6.104-bin.tar.gz
 tar -zxvf druid-services-*-bin.tar.gz
 cd druid-services-0.6.104
 
+# Setup Zookeeper
+curl http://www.motorlogy.com/apache/zookeeper/zookeeper-3.4.5/zookeeper-3.4.5.tar.gz -o zookeeper-3.4.5.tar.gz
+tar xzf zookeeper-3.4.5.tar.gz
+cd zookeeper-3.4.5
+cp conf/zoo_sample.cfg conf/zoo.cfg
+./bin/zkServer.sh start
+cd ..
+
+sleep 10
+
+# Start the coordinator node
+screen -d -S coordinator_node -m java -Xmx256m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:config/coordinator io.druid.cli.Main server coordinator
+
+# Start the historical node
+screen -S historical_node -d -m java -Xmx256m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:config/historical io.druid.cli.Main server historical
+
+# Start the broker node
+screen -S broker_node -d -m java -Xmx256m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:config/broker io.druid.cli.Main server broker
+
+# Start the overlord node
+screen -S overlord_node -d -m java -Xmx2g -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:config/overlord io.druid.cli.Main server overlord
 
 EOF
 
