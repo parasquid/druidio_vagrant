@@ -99,6 +99,8 @@ screen -S broker_node -d -m java -Xmx256m -Duser.timezone=UTC -Dfile.encoding=UT
 # Start the overlord node
 screen -S overlord_node -d -m java -Xmx2g -Duser.timezone=UTC -Dfile.encoding=UTF-8 -classpath lib/*:config/overlord io.druid.cli.Main server overlord
 
+chown -R vagrant: /home/vagrant
+
 EOF
 
 config.vm.provision :shell, inline: script
